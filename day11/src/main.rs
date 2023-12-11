@@ -154,43 +154,23 @@ const TEST: &'static str = "...#......
 #...#.....
 ";
 
-fn run(input: &'static str) {
-    let len = input.lines().next().unwrap().len();
-    let mut empty = String::new();
-    let mut replacement = String::new();
-    for _ in 0..len {
-        empty.push('.');
-        replacement.push('.');
-    }
-    replacement.push('\n');
-    for _ in 0..len {
-        replacement.push('.');
-    }
-    let input = input.replace(&empty, &replacement);
-    print!("{input}");
-    let mut lines = input.lines().map(String::from).collect::<Vec<String>>();
-    let mut i = 0;
-    while i < lines[0].len() {
+fn run(input: &'static str, dist: usize) {
+    let empty_rows = input.lines().enumerate().filter(|(_, l)| l.chars().all(|c| c == '.')).map(|(i, _)| i as i64).collect::<HashSet<i64>>();
+    let mut empty_cols = HashSet::new();
+    let mut lines = input.lines().collect::<Vec<&str>>();
+    for i in 0..lines[0].len() {
         let mut all = true;
         for r in 0..lines.len() {
-            if lines[r].bytes().nth(i).unwrap() != b'.' {
-                all = false;
-            }
+            if lines[r].bytes().nth(i).unwrap() != b'.' { all = false; }
         }
-        if all {
-            for r in 0..lines.len() {
-                lines[r].insert(i, '.');
-            }
-            i+=1;
-        }
-        i+=1;
+        if all { empty_cols.insert(i as i64); }
     }
-    print!("{:?}", lines);
+    println!("{:?} {:?}", empty_rows, empty_cols);
     let grid: HashMap<(i64, i64), char> =
-        lines.into_iter()
+        input.lines()
         .enumerate()
         .flat_map(|(y, l)| {
-            l.chars().collect::<Vec<char>>().into_iter()
+            l.chars()
                 .enumerate()
                 .map(move |(x, c)| ((y as i64, x as i64), c as char))
         })
@@ -222,11 +202,22 @@ fn run(input: &'static str) {
                 total += depth;
             }
             for adjacent in &adj {
-                let new_pos = (coord.0 + adjacent.0, coord.1 + adjacent.1);
+                let mut new_pos = (coord.0 + adjacent.0, coord.1 + adjacent.1);
+                let mut distance = 1;
+
+
+                while empty_rows.contains(&new_pos.0) {
+                    distance += dist;
+                    new_pos.0 += adjacent.0;
+                }
+                while empty_cols.contains(&new_pos.1) {
+                    distance+=dist;
+                    new_pos.1 += adjacent.1;
+                }
                 if !grid.contains_key(&new_pos) || visited.contains(&new_pos) {
                     continue;
                 }
-                queue.push_back((new_pos, depth + 1));
+                queue.push_back((new_pos, depth + distance));
             }
         }
     }
@@ -234,7 +225,7 @@ fn run(input: &'static str) {
     print!("{}", total);
 }
 fn main() {
-    run(TEST);
+    run(TEST, 1_000_000);
 
-    run(INPUT);
+    run(INPUT, 1_000_000);
 }

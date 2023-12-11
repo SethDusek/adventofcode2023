@@ -1,4 +1,7 @@
-use std::{collections::HashMap, hint::unreachable_unchecked};
+use std::{
+    collections::{HashMap, HashSet},
+    hint::unreachable_unchecked,
+};
 
 const INPUT: &'static str = "LRLRLLRLLRRRLRLLRRLRLRRLRRLLLLRRLLRLRRLRRLRLRLRRLRLLRLRLRLRRRLLRLRLRLRRLRRLRRRLRRLRRLRRLRRLRRRLRRLRLLRLLRRRLRLRLLRRRLLRRLLLLRLRRRLLRLRLRRLRRRLRLRRLRLRRLLRLRRLLRLLRRLRLLRLLRRLRRRLLRRLRLRLRRLRRLRRRLRRLRRRLLRRLRLRRRLRRRLRLRRRLRRLRRLRRLRRRLRRLRLRRRLRLRRLLRRLRRRLRLRRRLLRLRRRLRRRLRLRLRRRLLRRLLRLRRRLRRLRRRLLLRRRR
 
@@ -800,17 +803,26 @@ BBB = (AAA, ZZZ)
 ZZZ = (ZZZ, ZZZ)
 ";
 
+#[derive(Copy, Clone)]
 struct Node {
     left: &'static str,
-    right: &'static str
+    right: &'static str,
 }
 
-fn parse(input: &'static str) -> (impl Iterator<Item = char>, HashMap<&'static str, Node>) {
+fn parse(
+    input: &'static str,
+) -> (
+    impl Iterator<Item = char> + Clone,
+    HashMap<&'static str, Node>,
+) {
     let (path, nodes) = input.split_once("\n\n").unwrap();
-    let nodes = nodes.lines().map(|l| l.split_once(" = "))
+    let nodes = nodes
+        .lines()
+        .map(|l| l.split_once(" = "))
         .map(Option::unwrap)
         .map(|(name, lr)| (name, lr[1..lr.len() - 1].split_once(", ").unwrap()))
-        .map(|(name, (left, right))| (name, Node { left, right })).collect();
+        .map(|(name, (left, right))| (name, Node { left, right }))
+        .collect();
     (path.chars().cycle(), nodes)
 }
 
@@ -822,16 +834,101 @@ fn run(input: &'static str) {
         cur = match ch {
             'L' => nodes[cur].left,
             'R' => nodes[cur].right,
-            _ => unsafe { unreachable_unchecked() } // SPEEEED
+            _ => unsafe { unreachable_unchecked() }, // SPEEEED
         };
-        steps+=1;
+        steps += 1;
         if cur == "ZZZ" {
             break;
         }
     }
     println!("Part 1: {steps}");
 }
+fn parse2(
+    input: &'static str,
+) -> (
+    impl Iterator<Item = (usize, char)> + Clone,
+    HashMap<&'static str, Node>,
+) {
+    let (path, nodes) = input.split_once("\n\n").unwrap();
+    let nodes = nodes
+        .lines()
+        .map(|l| l.split_once(" = "))
+        .map(Option::unwrap)
+        .map(|(name, lr)| (name, lr[1..lr.len() - 1].split_once(", ").unwrap()))
+        .map(|(name, (left, right))| (name, Node { left, right }))
+        .collect();
+    (path.chars().enumerate().cycle(), nodes)
+}
+
+fn gcd(mut a: u64, mut b: u64) -> u64 {
+    if b > a {
+        std::mem::swap(&mut a, &mut b);
+    }
+    while b != 0 {
+        let rem = a % b;
+        a = b;
+        b = rem;
+    }
+    return a;
+}
+
+fn lcm(a: u64, b: u64) -> u64 {
+    a * b / gcd(a, b)
+}
+fn run2(input: &'static str) {
+    let (path, nodes) = parse2(input);
+    let mut cur = nodes
+        .keys()
+        .map(|&key| key)
+        .filter(|key| key.ends_with("A"))
+        .collect::<Vec<&'static str>>();
+    let mut steps = 0u64;
+    // TEST:
+    let mut visited = HashSet::new();
+    let mut walk_lengths = vec![];
+    for node in 0..cur.len() {
+        let mut steps = 0;
+        for (idx, ch) in path.clone() {
+            if visited.contains(&(idx, cur[node])) {
+                println!("{:?}", visited);
+                break;
+            }
+            visited.insert((idx, cur[node]));
+            steps += 1;
+            match ch {
+                'L' => cur[node] = nodes[cur[node]].left,
+                'R' => cur[node] = nodes[cur[node]].right,
+                _ => unsafe { unreachable_unchecked() }, // SPEEEED
+            }
+            if cur[node].ends_with('Z') {
+                walk_lengths.push(steps);
+            }
+        }
+    }
+    println!("{:?}", walk_lengths);
+    let mut ans = walk_lengths[0];
+    println!("{}", walk_lengths.into_iter().reduce(|a, b| lcm(a, b)).unwrap());
+
+    return;
+    // dbg!(cur.len());
+    // for ch in path {
+    //     match ch {
+    //         'L' => cur.iter_mut().for_each(|key| *key = nodes[*key].left),
+    //         'R' => cur.iter_mut().for_each(|key| *key = nodes[*key].right),
+    //         _ => unsafe { unreachable_unchecked() } // SPEEEED
+    //     }
+    //     steps+=1;
+    //     if cur.iter().all(|key| key.ends_with('Z')) {
+    //         break;
+    //     }
+    // }
+    // println!("Part 2: {steps}");
+}
+
 fn main() {
-    run(TEST);
-    run(INPUT);
+    //run(TEST);
+    //run(INPUT);
+
+    //run2(TEST);
+    run2(INPUT);
 }

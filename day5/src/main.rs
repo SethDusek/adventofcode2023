@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 const TEST: &'static str = "seeds: 79 14 55 13
 
@@ -285,13 +285,42 @@ humidity-to-location map:
 1034839539 1237439510 142052261
 ";
 
+fn intersection(
+    range_a_start: u64,
+    range_a_end: u64,
+    range_b_start: u64,
+    range_b_end: u64,
+) -> Option<(u64, u64)> {
+    if range_b_start >= range_a_end || range_a_start >= range_b_end {
+        return None;
+    }
+    return Some((
+        std::cmp::max(range_a_start, range_b_start),
+        std::cmp::min(range_a_end, range_b_end),
+    ));
+}
 fn run(input: &'static str) {
     let (seeds, mappings) = input.split_once("\n\n").unwrap();
     println!("{}\n{}", seeds, mappings);
 
     let mut min_location = u64::MAX;
-    for seed in seeds.split_once(": ").unwrap().1.split_whitespace() {
-        let mut cur_num = seed.parse::<u64>().unwrap();
+    let seeds = seeds
+        .split_once(": ")
+        .unwrap()
+        .1
+        .split_whitespace()
+        .map(u64::from_str)
+        .map(Result::unwrap)
+        .collect::<Vec<u64>>();
+    dbg!(&seeds);
+    let mut map: HashMap<&'static str, (&'static str, Vec<(u64, u64, u64)>)> = HashMap::new();
+    for seed in (0..seeds.len()).step_by(2) {
+        dbg!(seed);
+        let mut cur_num = seeds[seed];
+        let mut cur_num_end = cur_num + seeds[seed + 1];
+        println!("range seeds = {} {}", cur_num, cur_num_end);
+        let mut ranges = vec![];
+        ranges.push((cur_num, cur_num_end));
         for mapping in mappings.split("\n\n") {
             let (from, to) = mapping
                 .lines()
@@ -303,23 +332,79 @@ fn run(input: &'static str) {
                 .split_once("-to-")
                 .unwrap();
             println!("{from} {to}");
-            for ranges in mapping.lines().skip(1) {
-                let mut iter = ranges.split_whitespace().map(u64::from_str).map(Result::unwrap);
+            for mapping_ranges in mapping.lines().skip(1) {
+                let mut iter = mapping_ranges
+                    .split_whitespace()
+                    .map(u64::from_str)
+                    .map(Result::unwrap);
                 let dst_start = iter.next().unwrap();
                 let src_start = iter.next().unwrap();
                 let count = iter.next().unwrap();
-                if (src_start..src_start + count).contains(&cur_num) {
-                    println!("Mapping {cur_num} to {}", dst_start + cur_num - src_start);
-                    cur_num = dst_start + cur_num - src_start;
-                    break;
+                map.entry(from).and_modify(|v| v.1.push((dst_start, src_start, count))).or_insert((to, vec![(dst_start, src_start, count)]));
+                let mut new_ranges = vec![];
+                for range in ranges.drain(..) {
+                    if let Some((new_start, new_end)) = intersection(range.0, range.1, src_start, src_start + count) {
+                        new_ranges.push((dst_start + new_start - src_start, dst_start + new_end - src_start));
+                    }
+                    else {
+                    }
                 }
+
             }
         }
         min_location = std::cmp::min(min_location, cur_num);
     }
-    println!("{min_location}");
+    println!("part2 ?? {min_location}");
+
+    let mut min_part2 = u64::MAX;
+    for seed in (0..seeds.len()).step_by(2) {
+        let start = seeds[seed];
+        let end = start + seeds[seed + 1];
+        min_part2 = std::cmp::min(min_part2, backtrack(&map, start, end, "seed"));
+    }
+    //println!("part2 {}", min_part2);
+}
+
+fn backtrack(
+    mappings: &HashMap<&'static str, (&'static str, Vec<(u64, u64, u64)>)>,
+    cur_range_start: u64,
+    cur_range_end: u64,
+    cur_type: &'static str,
+) -> u64 {
+    if cur_type == "location" {
+        return cur_range_start;
+    }
+    let (to, ranges) = &mappings[cur_type];
+
+    let mut min_location = u64::MAX;
+    for mapping in ranges {
+        let dst_start = mapping.0;
+        let src_start = mapping.1;
+        let count = mapping.2;
+        //println!("Range: {cur_range_start}..{cur_range_end}");
+        if let Some(new_range) = intersection(src_start, src_start + count, cur_range_start, cur_range_end) {
+            //if dst_start + new_range.0 - src_start < cur_num {
+            let cur_num = dst_start + new_range.0 - src_start;
+            //dbg!(new_range.0, new_range.1);
+            let cur_num_end = dst_start + (new_range.1 - src_start);
+            let ans = backtrack(mappings, cur_num, cur_num_end, to);
+            if ans != 0 {
+                min_location = std::cmp::min(min_location, ans);
+            }
+            //}
+            //println!("{cur_num}..{cur_num_end}");
+        }
+        else {
+            let ans = backtrack(mappings, cur_range_start, cur_range_end, to);
+            if ans != 0 {
+                min_location = std::cmp::min(min_location, ans);
+            }
+        }
+    }
+
+    return min_location;
 }
 fn main() {
     run(TEST);
-    run(INPUT);
+    //run(INPUT);
 }

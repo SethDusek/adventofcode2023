@@ -402,13 +402,15 @@ fn run3(input: &str) {
     }
 
     //println!("{:?}", visited);
-    let mut enclosed = HashSet::new();
-    for &pos in grid.keys().filter(|pos| !visited.contains(pos) && grid[pos] != 'X' && grid[pos] != 'Y') {
-        is_enclosed(pos, &grid, &visited, &mut enclosed);
-    }
+    //let mut enclosed = HashSet::new();
+    // for &pos in grid.keys().filter(|pos| !visited.contains(pos) && grid[pos] != 'X' && grid[pos] != 'Y') {
+    //     is_enclosed(pos, &grid, &visited, &mut enclosed);
+    // }
     //println!("{}", max_depth);
-    print_grid(&grid, &visited, &enclosed);
-    println!("part 2 answer: {}", enclosed.iter().filter(|pos| grid[&pos] != 'Y' && grid[&pos] != 'X').count());
+    //print_grid(&grid, &visited, &enclosed);
+    //println!("part 2 answer: {}", enclosed.iter().filter(|pos| grid[&pos] != 'Y' && grid[&pos] != 'X').count());
+    println!("Here");
+    flood(&grid, &visited);
 }
 fn scale_grid(grid: &HashMap<(i64, i64), char>) -> HashMap<(i64, i64), char> {
     let min_y = grid.keys().map(|&(y, _)| y).min().unwrap();
@@ -435,15 +437,15 @@ fn scale_grid(grid: &HashMap<(i64, i64), char>) -> HashMap<(i64, i64), char> {
         }
         output_y += 2;
     }
-    print_grid(&new_grid, &HashSet::new(), &HashSet::new());
+    //print_grid(&new_grid, &HashSet::new(), &HashSet::new());
     new_grid
 }
 fn print_grid(
     grid: &HashMap<(i64, i64), char>,
     loop_tiles: &HashSet<(i64, i64)>,
     enclosed: &HashSet<(i64, i64)>,
+    outside: &HashSet<(i64, i64)>
 ) {
-    dbg!(&enclosed);
     let min_y = grid.keys().map(|&(y, _)| y).min().unwrap();
     let max_y = grid.keys().map(|&(y, _)| y).max().unwrap();
     let min_x = grid.keys().map(|&(_, x)| x).min().unwrap();
@@ -467,7 +469,10 @@ fn print_grid(
             if enclosed.contains(&(y, x)) && loop_tiles.contains(&(y, x)) {
                 panic!();
             }
-            if enclosed.contains(&(y, x)) {
+            if outside.contains(&(y, x)) {
+                print!("{}", "O".bold().yellow());
+            }
+            else if enclosed.contains(&(y, x)) {
                 print!("{}", "I".bold().red());
             } else if loop_tiles.contains(&(y, x)) {
                 print!("{}", ch.to_string().bold().green())
@@ -477,6 +482,74 @@ fn print_grid(
         }
         println!("");
     }
+}
+
+fn flood(grid: &HashMap<(i64, i64), char>, in_loop: &HashSet<(i64, i64)>) {
+    let adj = [
+        //(-1, -1),
+        (-1, 0),
+        //(-1, 1),
+        (0, -1),
+        (0, 1),
+        //(1, -1),
+        (1, 0),
+        //(1, 1),
+    ];
+
+    let mut visited = HashSet::new();
+    let mut total = 0;
+    let mut outside: HashSet<(i64, i64)> = HashSet::new();
+    for (start, _) in grid.iter().filter(|(pos, &c)| !in_loop.contains(&pos) && c != 'X' && c != 'Y') {
+        if visited.contains(start) {
+            continue;
+        }
+        let mut queue = VecDeque::new();
+        queue.push_back(*start);
+        let mut count = 0;
+        let mut inner_enclosed = HashSet::new();
+        // Then nodes starting from start that will be visited
+        let mut visiting = HashSet::new();
+        'outer: while queue.len() != 0 {
+            let pos = queue.pop_front().unwrap();
+            if outside.contains(&pos) {
+                count = 0;
+                outside.extend(visiting.iter());
+                break;
+            }
+            if visited.contains(&pos) {
+                continue;
+            }
+            visited.insert(pos);
+            inner_enclosed.insert(pos);
+            visiting.insert(pos);
+
+            //print!("{}[2J", 27 as char);
+            //println!("Total count: {total}, current count: {count}");
+            //print_grid(&grid, &in_loop, &inner_enclosed, &outside);
+            //std::thread::sleep(std::time::Duration::from_millis(660));
+            if grid[&pos] != 'X' && grid[&pos] != 'Y' {
+                //println!("Incrementing because of: {}", grid[&pos]);
+                count+=1;
+                //continue;
+            }
+            for adjacent in adj {
+                let new_pos = (pos.0 + adjacent.0, pos.1 + adjacent.1);
+                if grid.get(&new_pos).is_none() || outside.contains(&new_pos) {
+                    count = 0;
+                    outside.extend(visiting.iter());
+                    break 'outer;
+                }
+                if visited.contains(&new_pos) || in_loop.contains(&new_pos)  {
+                    continue;
+                }
+                queue.push_back(new_pos);
+            }
+        }
+        total+=count;
+        //println!("Total so far = {total}");
+    }
+    dbg!(outside.len());
+    println!("Part 2 flood: {total}");
 }
 fn is_enclosed(
     pos: (i64, i64),
@@ -524,6 +597,7 @@ fn main() {
     //run(INPUT);
     //run2(TEST);
     run3(TEST);
+    //std::thread::sleep(std::time::Duration::from_secs(5));
     run3(TEST2);
     run3(TEST3);
     run3(INPUT);
