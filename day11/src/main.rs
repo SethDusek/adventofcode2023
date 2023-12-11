@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::cmp;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 const INPUT: &'static str = ".#..........#.....................#........................................................#....................................#...........
 ...................#........................................#......................#........................................................
@@ -155,77 +155,65 @@ const TEST: &'static str = "...#......
 ";
 
 fn run(input: &'static str, dist: usize) {
-    let empty_rows = input.lines().enumerate().filter(|(_, l)| l.chars().all(|c| c == '.')).map(|(i, _)| i as i64).collect::<HashSet<i64>>();
-    let mut empty_cols = HashSet::new();
-    let mut lines = input.lines().collect::<Vec<&str>>();
+    let empty_rows = input
+        .lines()
+        .map(|l| {
+            if l.chars().all(|c| c == '.') {
+                1i64
+            } else {
+                0i64
+            }
+        })
+        .scan(0, |sum, val| {
+            *sum += val;
+            Some(*sum)
+        })
+        .collect::<Vec<i64>>();
+    //println!("{:?}", empty_rows);
+    let mut empty_cols = Vec::new();
+    let lines = input.lines().collect::<Vec<&str>>();
     for i in 0..lines[0].len() {
         let mut all = true;
         for r in 0..lines.len() {
-            if lines[r].bytes().nth(i).unwrap() != b'.' { all = false; }
+            if lines[r].bytes().nth(i).unwrap() != b'.' {
+                all = false;
+            }
         }
-        if all { empty_cols.insert(i as i64); }
+        let val = if all { 1 } else { 0 };
+        if empty_cols.len() != 0 {
+            empty_cols.push(empty_cols[empty_cols.len() - 1] + val);
+        } else {
+            empty_cols.push(val);
+        }
     }
-    println!("{:?} {:?}", empty_rows, empty_cols);
-    let grid: HashMap<(i64, i64), char> =
-        input.lines()
+    //println!("{:?} {:?}", empty_rows, empty_cols);
+    let galaxies = input
+        .lines()
         .enumerate()
         .flat_map(|(y, l)| {
             l.chars()
                 .enumerate()
                 .map(move |(x, c)| ((y as i64, x as i64), c as char))
-        })
-        .collect();
-    let adj = [
-        (-1, 0),
-        (0, -1),
-        (0, 1),
-        (1, 0),
-    ];
+                .filter(|&(_, c)| c == '#')
+                .map(|(xy, _)| xy)
+        }).collect::<Vec<(i64, i64)>>();
 
-    let galaxies = grid.iter().filter(|(_, v)| **v == '#').map(|(&k, &v)| k).collect::<HashSet<(i64, i64)>>();
-
-    let mut pairs: HashSet<((i64, i64), (i64, i64))> = HashSet::new();
     let mut total = 0;
-    for galaxy in &galaxies {
-        let mut queue = VecDeque::new();
-        let mut visited = HashSet::new();
-        queue.push_back((*galaxy, 0));
-        while queue.len() != 0 {
-            let (coord, depth) = queue.pop_front().unwrap();
-            if visited.contains(&coord) {
-                continue;
-            }
-            visited.insert(coord);
-            if galaxies.contains(&coord) && coord != *galaxy && !pairs.contains(&(cmp::min(coord, *galaxy), cmp::max(coord, *galaxy))) {
-                pairs.insert((cmp::min(coord, *galaxy), cmp::max(coord, *galaxy)));
-                //println!("From galaxy {:?} to {:?} = {} steps", galaxy, coord, depth);
-                total += depth;
-            }
-            for adjacent in &adj {
-                let mut new_pos = (coord.0 + adjacent.0, coord.1 + adjacent.1);
-                let mut distance = 1;
-
-
-                while empty_rows.contains(&new_pos.0) {
-                    distance += dist;
-                    new_pos.0 += adjacent.0;
-                }
-                while empty_cols.contains(&new_pos.1) {
-                    distance+=dist;
-                    new_pos.1 += adjacent.1;
-                }
-                if !grid.contains_key(&new_pos) || visited.contains(&new_pos) {
-                    continue;
-                }
-                queue.push_back((new_pos, depth + distance));
-            }
+    for i in 0..galaxies.len() - 1 {
+        let cur = galaxies[i];
+        for &other in &galaxies[i + 1..] {
+            let (min_y, min_x) = (cmp::min(cur.0, other.0), cmp::min(cur.1, other.1));
+            let (max_y, max_x) = (cmp::max(cur.0, other.0), cmp::max(cur.1, other.1));
+            let distance = max_x - min_x + max_y - min_y;
+            let empty_space = empty_rows[max_y as usize] - empty_rows[min_y as usize] + empty_cols[max_x as usize] - empty_cols[min_x as usize];
+            total+=distance + empty_space * dist as i64;
         }
     }
-    //println!("{:?}, {}", pairs, pairs.len());
-    print!("{}", total);
+    println!("{}", total);
 }
 fn main() {
-    run(TEST, 1_000_000);
-
-    run(INPUT, 1_000_000);
+    run(TEST, 1);
+    run(INPUT, 1);
+    run(TEST, 999_999);
+    run(INPUT, 999_999);
 }
