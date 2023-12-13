@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, collections::HashMap};
 const TEST: &'static str = "???.### 1,1,3
 .??..??...?##. 1,1,3
 ?#?#?#?#?#?#?#? 1,3,1,6
@@ -1028,10 +1028,11 @@ fn parse(input: &'static str) -> Vec<(&'static str, Vec<u64>)> {
 fn to_part2(data: &[(&'static str, Vec<u64>)]) -> Vec<(String, Vec<u64>)> {
     let mut res = vec![];
     for l in data {
+        let l0 = l.0.replace("..", ".");
         let mut new_string = String::new();
         let mut new_cont = vec![];
         for i in 0..5 {
-            new_string.push_str(l.0);
+            new_string.push_str(&l0);
             if i != 4 { new_string.push('?') }
             new_cont.extend_from_slice(&l.1);
         }
@@ -1039,50 +1040,69 @@ fn to_part2(data: &[(&'static str, Vec<u64>)]) -> Vec<(String, Vec<u64>)> {
     }
     res
 }
-
-fn ways<'a>(line: &'a str, records: &[u64], cur_count: u64) -> u64 {
+fn to_addr(line: &str, records: &[u64], cur_count: u64) -> (usize, usize, u64) {
+    (line.as_ptr() as usize, records.as_ptr() as usize, cur_count)
+}
+fn ways<'a>(line: &'a str, records: &[u64], cur_count: u64, dp: &mut HashMap<(usize, usize, u64), u64>) -> u64 {
+    if let Some(&ans) = dp.get(&to_addr(line, records, cur_count)) {
+        return ans;
+    }
     //println!("{} {:?} {}", line, records, cur_count);
     if records.len() == 0 {
         if line.len() == 0 || (line.find('#').is_none()) { // probably wrong?
+            dp.insert(to_addr(line, records, cur_count), 1);
             return 1;
         } else {
+            dp.insert(to_addr(line, records, cur_count), 0);
             return 0;
         }
     }
     if cur_count == records[0] {
         if line.bytes().nth(0) == Some(b'?') { // skip this since records must be contiguous
-            return ways(&line[1..], &records[1..], 0);
+            let ans = ways(&line[1..], &records[1..], 0, dp);
+            dp.insert(to_addr(line, records, cur_count), ans);
+            return ans;
         }
         else if line.bytes().nth(0) == Some(b'#') { // can't have a broken spring after a finished contiguous list of broken springs, abort
+            dp.insert(to_addr(line, records, cur_count), 0);
             return 0
         }
-        return ways(&line, &records[1..], 0);
+        let ans = ways(&line, &records[1..], 0, dp);
+        dp.insert(to_addr(line, records, cur_count), ans);
+        return ans;
     }
 
     if line.bytes().nth(0) == Some(b'.') {
         if cur_count != 0 {
+            dp.insert(to_addr(line, records, cur_count), 0);
             return 0
         }
-        return ways(&line[1..], records, cur_count);
+        let ans = ways(&line[1..], records, cur_count, dp);
+        dp.insert(to_addr(line, records, cur_count), ans);
+        return ans;
     }
-    match line.bytes().nth(0) {
-        Some(b'#') => ways(&line[1..], &records, cur_count + 1),
-        Some(b'?') if cur_count != 0 => ways(&line[1..], &records, cur_count + 1),
-        Some(b'?') if cur_count == 0 => ways(&line[1..], &records, 1) + ways(&line[1..], &records, 0),
+    let ans = match line.bytes().nth(0) {
+        Some(b'#') => ways(&line[1..], &records, cur_count + 1, dp),
+        Some(b'?') if cur_count != 0 => ways(&line[1..], &records, cur_count + 1, dp),
+        Some(b'?') if cur_count == 0 => ways(&line[1..], &records, 1, dp) + ways(&line[1..], &records, 0, dp),
         _ => 0,
-    }
+    };
+    dp.insert(to_addr(line, records, cur_count), ans);
+    return ans;
 }
 fn main() {
     let parsed = parse(TEST);
     let mut sum = 0;
     for line in parsed {
-        sum+=ways(line.0, &line.1, 0);
+        let mut dp = HashMap::new();
+        sum+=ways(line.0, &line.1, 0, &mut dp);
     }
     println!("{sum}");
     let parsed = parse(INPUT);
     let mut sum = 0;
     for line in parsed {
-        sum+=ways(line.0, &line.1, 0);
+        let mut dp = HashMap::new();
+        sum+=ways(line.0, &line.1, 0, &mut dp);
     }
     println!("{sum}");
 
@@ -1090,13 +1110,15 @@ fn main() {
     println!("{:?}", parsed);
     let mut sum = 0;
     for line in parsed {
-        sum+=ways(&line.0, &line.1, 0);
+        let mut dp = HashMap::new();
+        sum+=ways(&line.0, &line.1, 0, &mut dp);
     }
     println!("{sum}");
     let parsed = to_part2(&parse(INPUT));
     let mut sum = 0;
     for line in parsed {
-        sum+=ways(&line.0, &line.1, 0);
+        let mut dp = HashMap::new();
+        sum+=ways(&line.0, &line.1, 0, &mut dp);
     }
     println!("{sum}");
 }
