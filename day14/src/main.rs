@@ -1,3 +1,5 @@
+use std::collections::{HashSet, HashMap};
+
 const TEST: &'static str = "O....#....
 O.OO#....#
 .....##...
@@ -114,7 +116,7 @@ fn run(input: &'static str) {
         .lines()
         .map(|l| l.chars().collect())
         .collect::<Vec<Vec<char>>>();
-    let dirs = [(-1, 0), (0, 1), (1, 0), (0, -1)];
+    let dirs = [(-1, 0), (0, -1), (1, 0), (0, 1)];
     let mut cloned = grid.clone();
     roll(&mut cloned, (-1, 0));
 
@@ -129,6 +131,52 @@ fn run(input: &'static str) {
         })
         .sum::<usize>();
     println!("{total}");
+
+    let mut visited = HashMap::new();
+    let mut i = 0;
+    let mut sums = vec![];
+    loop {
+        for dir in dirs {
+            roll(&mut grid, dir);
+        }
+        let grid_str = grid
+            .iter()
+            .flat_map(|l| l.iter().copied().chain(std::iter::once('\n')))
+            .collect::<String>();
+        //println!("{}", grid_str);
+        if visited.contains_key(&grid_str) {
+            let total = grid
+                .iter()
+                .enumerate()
+                .map(|(r, l)| {
+                    l.iter()
+                        .filter(|&&c| c == 'O')
+                        .map(|_| grid.len() - r)
+                        .sum::<usize>()
+                })
+                .sum::<usize>();
+
+            println!("Cycle {i} {sums:?} {total} idx: {}", visited[&grid_str]);
+            let cycle_start = visited[&grid_str];
+            let rem = &sums[cycle_start..].len();
+            println!("{rem}");
+            println!("Answer: {} {}", (1_000_000_000 - i) % rem, sums[cycle_start + (1_000_000_000 - i - 1) % rem]);
+            break;
+        }
+        visited.insert(grid_str, i);
+        let total = grid
+            .iter()
+            .enumerate()
+            .map(|(r, l)| {
+                l.iter()
+                    .filter(|&&c| c == 'O')
+                    .map(|_| grid.len() - r)
+                    .sum::<usize>()
+            })
+            .sum::<usize>();
+            sums.push(total);
+        i += 1;
+    }
 }
 
 fn roll(grid: &mut [Vec<char>], dir: (isize, isize)) {
@@ -138,7 +186,11 @@ fn roll(grid: &mut [Vec<char>], dir: (isize, isize)) {
         for i in 0..grid.len() {
             for j in 0..grid[0].len() {
                 let pos = (i as isize + dir.0, j as isize + dir.1);
-                if pos.0 < 0 || pos.1 < 0 || pos.0 >= grid.len() as isize || pos.1 >= grid[0].len() as isize {
+                if pos.0 < 0
+                    || pos.1 < 0
+                    || pos.0 >= grid.len() as isize
+                    || pos.1 >= grid[0].len() as isize
+                {
                     continue;
                 }
                 let pos = (pos.0 as usize, pos.1 as usize);
