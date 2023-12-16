@@ -155,6 +155,11 @@ fn run(input: &'static str) {
                         .sum::<usize>()
                 })
                 .sum::<usize>();
+            let grid_str = grid
+            .iter()
+            .flat_map(|l| l.iter().copied().chain(std::iter::once('\n')))
+            .collect::<String>();
+            println!("{}", grid_str);
 
             println!("Cycle {i} {sums:?} {total} idx: {}", visited[&grid_str]);
             let cycle_start = visited[&grid_str];

@@ -22,19 +22,20 @@ fn bounce(ray_dir: (i64, i64), mirror: char) -> Vec<(i64, i64)> {
     }
 }
 
-fn parse_grid(input: &str) -> HashMap<(i64, i64), char> {
+fn parse_grid(input: &str) -> (Vec<char>, usize) {
+    let mut cols = input.lines().next().unwrap().len();
     let grid = input
         .lines()
         .enumerate()
         .flat_map(|(i, l)| {
             l.chars()
                 .enumerate()
-                .map(move |(j, c)| ((i as i64, j as i64), c))
+                .map(move |(j, c)| c)
         })
-        .collect::<HashMap<(i64, i64), char>>();
-    grid
+        .collect::<Vec<char>>();
+    (grid, cols)
 }
-fn run(grid: &HashMap<(i64, i64), char>, initial_pos: (i64, i64), initial_dir: (i64, i64)) -> usize {
+fn run(grid: &[char], cols: usize, initial_pos: (i64, i64), initial_dir: (i64, i64)) -> usize {
     let mut energized = HashSet::new();
     let mut pos_dir = vec![(initial_pos, initial_dir)];
     energized.insert(pos_dir[0].0);
@@ -42,18 +43,22 @@ fn run(grid: &HashMap<(i64, i64), char>, initial_pos: (i64, i64), initial_dir: (
     while pos_dir.len() != 0 {
         let cur = pos_dir.pop().unwrap();
         visited.insert(cur);
-        if grid.get(&cur.0).is_none() {
+        if cur.0.0 as usize >= grid.len() / cols || cur.0.1 as usize >= cols {
             continue;
         }
         energized.insert(cur.0);
-        let dirs = bounce(cur.1, *grid.get(&cur.0).unwrap());
+        let dirs = bounce(cur.1, grid[cur.0.0 as usize * cols + cur.0.1 as usize]);
         for dir in dirs {
             let new_pos =
              (cur.0.0 + dir.0, cur.0.1 + dir.1);
             if visited.contains(&(new_pos, dir)) {
                 continue;
             }
-            if grid.get(&new_pos).is_none() {
+            if cur.0.0 as usize > grid.len() / cols || cur.0.1 as usize >= cols {
+                continue;
+            }
+
+            if new_pos.0 < 0 || new_pos.1 < 0 || new_pos.0 as usize >= grid.len() / cols || new_pos.1 as usize >= cols {
                 continue;
             }
             pos_dir.push((new_pos, dir));
@@ -80,28 +85,28 @@ fn print_grid(grid: &HashMap<(i64, i64), char>, energized: &HashSet<(i64, i64)>)
     }
 }
 
-fn run_parts(grid: &HashMap<(i64, i64), char>) {
+fn run_parts(grid: &[char], cols: usize) {
     let min_y = 0;
-    let max_y = grid.keys().map(|(y, _)| *y).max().unwrap();
+    let max_y = (grid.len() / cols) as i64;
     let min_x: i64 = 0;
-    let max_x = grid.keys().map(|(_, x)| *x).max().unwrap();
+    let max_x = cols as i64;
     let mut ans = 0;
-    println!("Part 1: {}", run(&grid, (0, 0), (0, 1)));
+    println!("Part 1: {}", run(&grid, cols, (0, 0), (0, 1)));
     for x in min_x..=max_x {
-        ans = cmp::max(ans, run(&grid, (min_y, x), (1, 0)));
-        ans = cmp::max(ans, run(&grid, (max_y, x), (-1, 0)));
+        ans = cmp::max(ans, run(&grid, cols, (min_y, x), (1, 0)));
+        ans = cmp::max(ans, run(&grid, cols, (max_y, x), (-1, 0)));
     }
     for y in min_y..=max_y {
-        ans = cmp::max(ans, run(&grid, (y, min_x), (0, 1)));
-        ans = cmp::max(ans, run(&grid, (y, max_x), (0, -1)));
+        ans = cmp::max(ans, run(&grid, cols, (y, min_x), (0, 1)));
+        ans = cmp::max(ans, run(&grid, cols, (y, max_x), (0, -1)));
     }
     println!("Part 2: {ans}");
 }
 fn main() {
-    let grid = parse_grid(TEST);
-    run_parts(&grid);
-    let grid = parse_grid(INPUT);
-    run_parts(&grid);
+    let (grid, cols) = parse_grid(TEST);
+    run_parts(&grid, cols);
+    let (grid, cols) = parse_grid(INPUT);
+    run_parts(&grid, cols);
 
 
     //run(&grid, (0, 0), (0, 1));
