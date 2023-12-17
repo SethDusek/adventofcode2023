@@ -1,17 +1,33 @@
 use std::{
     cmp::{Ordering, Reverse},
     collections::{BinaryHeap, HashMap, HashSet},
+    hash::Hash,
 };
 
 const INPUT: &'static str = include_str!("../input.txt");
 const TEST: &'static str = include_str!("../test.txt");
 
-#[derive(PartialOrd, Ord, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(PartialOrd, Ord, Clone, Copy, Eq, Debug)]
 struct Node {
     distance: Reverse<u64>,
     coords: (i64, i64),
     dir: (i64, i64),
     same_dir_count: usize,
+}
+
+impl Hash for Node {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.coords.hash(state);
+        self.dir.hash(state);
+        self.same_dir_count.hash(state);
+    }
+}
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        self.coords == other.coords
+            && self.dir == other.dir
+            && self.same_dir_count == other.same_dir_count
+    }
 }
 
 fn adj(dir: (i64, i64)) -> [(i64, i64); 3] {
@@ -24,32 +40,49 @@ fn adj(dir: (i64, i64)) -> [(i64, i64); 3] {
     }
 }
 
-fn run(input: &str) {
+struct Grid(Vec<u64>, usize);
+
+impl Grid {
+    fn get(&self, idx: (i64, i64)) -> Option<&u64> {
+        if idx.0 < 0 || idx.1 < 0 || idx.0 as usize >= self.0.len() / self.1 || idx.1 as usize >= self.1 {
+            None
+        }
+        else {
+            self.0.get((idx.0 * self.1 as i64 + idx.1) as usize)
+        }
+    }
+}
+
+impl std::ops::Index<(i64, i64)> for Grid {
+    type Output = u64;
+    fn index(&self, index: (i64, i64)) -> &Self::Output {
+        self.get(index).unwrap()
+    }
+}
+
+fn parse_grid(input: &str) -> Grid {
+    let cols = input.lines().next().unwrap().len();
     let grid = input
         .lines()
-        .enumerate()
-        .flat_map(|(i, l)| {
+        .flat_map(|l| {
             l.chars()
-                .enumerate()
-                .map(move |(j, c)| ((i as i64, j as i64), c.to_digit(10).unwrap() as u64))
+                .map(move |c| c.to_digit(10).unwrap() as u64)
         })
-        .collect::<HashMap<(i64, i64), u64>>();
+        .collect::<Vec<u64>>();
+    Grid(grid, cols)
+}
+
+fn run(grid2: &Grid, min_steps: usize, max_steps: usize) {
     let dest = (
-        grid.keys().map(|(i, j)| *i).max().unwrap(),
-        grid.keys().map(|(_, j)| *j).max().unwrap(),
+        (grid2.0.len() / grid2.1) as i64 - 1,
+        grid2.1 as i64 - 1
     );
 
     let mut heap = BinaryHeap::new();
     let mut dists = HashMap::new();
     let mut visited = HashSet::new();
-    let mut prevs: HashMap<(i64, i64), (i64, i64)> = HashMap::new();
-    // dists.insert((0, 0), 0);
-    // dists.insert((0, 1), grid[&(0, 1)]);
-    // dists.insert((1, 0), grid[&(1, 0)]);
-    // prevs.insert((0, 1), (0, 0));
-    // prevs.insert((1, 0), (0, 0));
     let node1 = Node {
-        distance: Reverse(grid[&(0, 1)]),
+        distance: Reverse(grid2[(0, 1)]),
         coords: (0, 1),
         dir: (0, 1),
         same_dir_count: 1,
@@ -57,7 +90,7 @@ fn run(input: &str) {
     heap.push(node1);
     dists.insert(node1, node1.distance.0);
     let node2 = Node {
-        distance: Reverse(grid[&(1, 0)]),
+        distance: Reverse(grid2[(1, 0)]),
         coords: (1, 0),
         dir: (1, 0),
         same_dir_count: 1,
@@ -65,33 +98,22 @@ fn run(input: &str) {
     heap.push(node2);
     dists.insert(node2, node2.distance.0);
 
-    // heap.push(Node {
-    //     distance: Reverse(grid[&(1, 0)]),
-    //     coords: (1, 0),
-    //     dir: (1, 0),
-    //     same_dir_count: 1
-    // });
-    // heap.push(Node {
-    //     distance: Reverse(0),
-    //     coords: (0, 0),
-    //     dir: (1, 0),
-    //     same_dir_count: 1
-    // });
     while heap.len() != 0 {
         let cur = heap.pop().unwrap();
         if cur.coords == dest {
             println!("Found dest! Heat loss: {:?}", cur.distance);
-            //print_grid(&grid, &prevs);
             break;
-            //panic!();
         }
-        visited.insert((cur.coords, cur.dir, cur.same_dir_count));
+        visited.insert(cur);
         for adj in adj(cur.dir) {
-            if adj == cur.dir && cur.same_dir_count >= 3 {
+            if adj == cur.dir && cur.same_dir_count >= max_steps {
+                continue;
+            }
+            if adj != cur.dir && cur.same_dir_count < min_steps {
                 continue;
             }
             let pos = (cur.coords.0 + adj.0, cur.coords.1 + adj.1);
-            if !grid.contains_key(&pos) {
+            if grid2.get(pos).is_none() {
                 continue;
             }
             let same_dir_count = if adj == cur.dir {
@@ -99,27 +121,33 @@ fn run(input: &str) {
             } else {
                 1
             };
-            if same_dir_count > 3 {
-                panic!();
-            }
+            let cur_pos_dist = dists[&cur] + grid2[pos];
             let adj_node = Node {
-                distance: Reverse(dists[&cur] + grid[&pos]),
+                distance: Reverse(cur_pos_dist),
                 coords: pos,
                 dir: adj,
                 same_dir_count,
             };
-            if visited.contains(&(adj_node.coords, adj_node.dir, adj_node.same_dir_count)) {
+            if visited.contains(&adj_node) {
                 continue;
             }
-            if dists[&cur] + grid[&pos] < dists.get(&adj_node).copied().unwrap_or(u64::MAX) {
-                dists.insert(adj_node, dists[&cur] + grid[&pos]);
+            let dist = dists.entry(adj_node).or_insert(u64::MAX);
+            if cur_pos_dist < *dist {
+                *dist = cur_pos_dist;
                 heap.push(adj_node);
-                prevs.insert(pos, cur.coords);
             }
+        }
+        while heap
+            .peek()
+            .map(|top| visited.contains(&top))
+            .unwrap_or(false)
+        {
+            dbg!(heap.pop());
         }
     }
     //println!("{:?}", dists);
 }
+
 fn print_grid(grid: &HashMap<(i64, i64), u64>, prev: &HashMap<(i64, i64), (i64, i64)>) {
     let min_y = grid.keys().map(|(y, _)| *y).min().unwrap();
     let max_y = grid.keys().map(|(y, _)| *y).max().unwrap();
@@ -153,6 +181,11 @@ fn print_grid(grid: &HashMap<(i64, i64), u64>, prev: &HashMap<(i64, i64), (i64, 
 }
 
 fn main() {
-    run(TEST);
-    run(INPUT);
+    let test_grid = parse_grid(TEST);
+    let input_grid = parse_grid(INPUT);
+    run(&test_grid, 0, 3);
+    run(&input_grid, 0, 3);
+
+    run(&test_grid, 4, 10);
+    run(&input_grid, 4, 10);
 }
