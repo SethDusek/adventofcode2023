@@ -76,8 +76,8 @@ fn parse_grid(input: &str) -> Grid {
 }
 
 fn mhd(a: (i32, i32), b: (i32, i32)) -> u32 {
-    ((a.0 - b.0).abs() + (a.1 - b.1).abs()) as u32
-    //0
+    //((a.0 - b.0).abs() + (a.1 - b.1).abs()) as u32
+    0
 }
 
 fn run(grid: &Grid, min_steps: usize, max_steps: usize) {
@@ -110,7 +110,7 @@ fn run(grid: &Grid, min_steps: usize, max_steps: usize) {
     while heap.len() != 0 {
         visited_count+=1;
         let cur = heap.pop().unwrap();
-        if cur.coords == dest {
+        if cur.coords == dest && cur.same_dir_count == min_steps {
             println!("Found dest! Heat loss: {:?}", cur.distance);
             println!("Visited {} nodes", visited_count);
             break;
@@ -146,6 +146,9 @@ fn run(grid: &Grid, min_steps: usize, max_steps: usize) {
             let dist = dists.entry(adj_node).or_insert(u32::MAX);
             if cur_pos_dist < *dist {
                 *dist = cur_pos_dist;
+                heap.push(adj_node);
+            }
+            if pos == (1, 0) || pos == (0, 1) {
                 heap.push(adj_node);
             }
         }
