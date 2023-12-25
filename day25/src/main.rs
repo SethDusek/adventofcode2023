@@ -32,73 +32,6 @@ fn parse<'a>(input: &'a str) -> Parsed<'a> {
     hm
 }
 
-// not needed
-fn run<'a>(input: &Parsed) {
-    let mut parents = HashMap::new();
-    let mut ranks = HashMap::new();
-    for &node in input.keys() {
-        make_set(&mut parents, &mut ranks, node);
-    }
-    println!("{parents:?} {ranks:?}");
-    let mut forests = input.len();
-    'outer: for (&node, edges) in input {
-        for edge in edges {
-            let node_root = root(&parents, node);
-            let edge_root = root(&parents, edge);
-            if node_root != edge_root {
-                println!("{} {}", node, edge);
-                union(&mut parents, &mut ranks, node, edge);
-                forests -= 1;
-                if forests == 2 {
-                    break 'outer;
-                }
-            }
-        }
-    }
-    dbg!(forests);
-    let mut sorted = ranks.values().copied().collect::<Vec<usize>>();
-    sorted.sort();
-    println!("{:?}", sorted);
-    println!("{}", sorted[sorted.len() - 1] * sorted[sorted.len() - 2]);
-    for node in input.keys() {
-        //println!("{} {}", node, parents[node]);
-    }
-}
-
-fn make_set<'a>(
-    parents: &mut HashMap<&'a str, &'a str>,
-    ranks: &mut HashMap<&'a str, usize>,
-    node: &'a str,
-) {
-    parents.insert(node, node);
-    ranks.insert(node, 1);
-}
-
-fn root<'a>(parents: &HashMap<&'a str, &'a str>, node: &'a str) -> &'a str {
-    let parent = parents[node];
-    if parent == node {
-        return parent;
-    }
-    root(parents, parent)
-}
-
-fn union<'a>(
-    parents: &mut HashMap<&'a str, &'a str>,
-    ranks: &mut HashMap<&'a str, usize>,
-    a: &'a str,
-    b: &'a str,
-) {
-    let mut parent_a = root(&*parents, a);
-    let mut parent_b = root(&*parents, b);
-    if parent_a != parent_b {
-        if ranks[parent_a] < ranks[parent_b] {
-            std::mem::swap(&mut parent_a, &mut parent_b);
-        }
-        parents.insert(parent_b, parent_a);
-        *ranks.get_mut(parent_a).unwrap() += ranks[parent_b];
-    }
-}
-
 fn simple_path<'a>(
     graph: &Parsed<'a>,
     flows: &HashMap<(&'a str, &'a str), i64>,
@@ -125,7 +58,6 @@ fn simple_path<'a>(
 
 fn ford_fulkerson<'a>(graph: &Parsed<'a>, source: &'a str, dest: &'a str) -> HashSet<[&'a str; 2]> {
     let mut flows: HashMap<(&'a str, &'a str), i64> = HashMap::new();
-    //let mut paths: Vec<Vec<&str>> = vec![];
     loop {
         let mut prev = HashMap::new();
         let mut visited = HashSet::new();
@@ -141,8 +73,6 @@ fn ford_fulkerson<'a>(graph: &Parsed<'a>, source: &'a str, dest: &'a str) -> Has
             }
             assert_eq!(cur, source);
             let mut cur = dest;
-            //let mut path_vec = vec![];
-            //path_vec.push(cur);
             while let Some(prev) = prev.get(&cur).copied() {
                 flows
                     .entry((prev, cur))
@@ -152,12 +82,8 @@ fn ford_fulkerson<'a>(graph: &Parsed<'a>, source: &'a str, dest: &'a str) -> Has
                     .entry((cur, prev))
                     .and_modify(|flow| *flow -= min_residual_capacity)
                     .or_insert(-min_residual_capacity);
-                //path_vec.push(prev);
                 cur = prev;
             }
-            //path_vec.reverse();
-            //paths.push(path_vec);
-            //paths+=1;
         } else {
             break;
         }
