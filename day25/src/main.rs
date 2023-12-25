@@ -58,6 +58,7 @@ fn run<'a>(input: &Parsed) {
     let mut sorted = ranks.values().copied().collect::<Vec<usize>>();
     sorted.sort();
     println!("{:?}", sorted);
+    println!("{}", sorted[sorted.len() - 1] * sorted[sorted.len() - 2]);
     for node in input.keys() {
         //println!("{} {}", node, parents[node]);
     }
