@@ -32,6 +32,7 @@ fn parse<'a>(input: &'a str) -> Parsed<'a> {
     hm
 }
 
+// not needed
 fn run<'a>(input: &Parsed) {
     let mut parents = HashMap::new();
     let mut ranks = HashMap::new();
@@ -124,7 +125,6 @@ fn simple_path<'a>(
 
 fn ford_fulkerson<'a>(graph: &Parsed<'a>, source: &'a str, dest: &'a str) -> HashSet<[&'a str; 2]> {
     let mut flows: HashMap<(&'a str, &'a str), i64> = HashMap::new();
-
     //let mut paths: Vec<Vec<&str>> = vec![];
     loop {
         let mut prev = HashMap::new();
@@ -209,7 +209,15 @@ fn main() {
         }
     }
 
-    //println!("{:?}", ford_fulkerson(&parsed, "cmg", "xhk"));
-    run(&parsed);
-    //println!("{:?}", parsed);
+    let mut visited = HashSet::new();
+    let mut stack = Vec::new();
+    stack.push(parsed.keys().next().unwrap());
+    while let Some(cur) = stack.pop().copied() {
+        visited.insert(cur);
+        for edge in parsed[&cur].iter().filter(|&&edge| !visited.contains(edge)) {
+            stack.push(edge);
+        }
+    }
+    println!("{}", visited.len() * (parsed.len() - visited.len()));
+
 }
